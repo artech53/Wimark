@@ -2,7 +2,6 @@
   <div id="app">
     
     <Table />
-    <!--<HelloWorld msg="Welcome to Your 123 Vue.js App"/>-->
   </div>
 </template>
 
@@ -13,7 +12,6 @@ export default {
   name: 'App',
   components: {
     Table,
-    //HelloWorld
   }
 }
 </script>
