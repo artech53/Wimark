@@ -92,10 +92,10 @@ export default {
     }
   },
 
-  mounted() {
+  /*mounted() {
     axios
       .get(WORK_API)
       .then(response => (this.userInfo = response));
-  }
+  }*/
 };
 </script>
