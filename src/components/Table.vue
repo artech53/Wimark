@@ -27,12 +27,12 @@
 </template>
 
 <script>
-import axios from 'axios';
+//import axios from 'axios';
 
-const API_TEST = 'https://api.coindesk.com/v1/bpi/currentprice.json';
+//const API_TEST = 'https://api.coindesk.com/v1/bpi/currentprice.json';
 //const API_URL = 'https://rssi.wmrk.tk/';
 
-const WORK_API = API_TEST;
+//const WORK_API = API_TEST;
 
 export default {
   name: "Table",
