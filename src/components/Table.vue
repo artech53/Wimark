@@ -1,8 +1,8 @@
 <template>
   <div class="table">
     <b-table
+      ref="data-table"
       selectable
-      :select-mode="selectMode"
       :busy.sync="isBusy"
       :items="userInfo"
       :fields="fields"
@@ -19,42 +19,19 @@
       </template>
     </b-table>
 
-    <b-modal ref="graph-modal" hide-footer>
+    <b-modal ref="graph-modal" hide-footer @hidden="resetModal">
       <template
         v-slot:modal-title
       >{{ selected && selected[0].first_name }} {{ selected && selected[0].last_name }} WiFi</template>
 
-      <b-container fluid>
-        <b-row class="text-center" align-v="center">
-          <b-col cols="1">
-            <div>RSSI</div>
-          </b-col>
-          <b-col class="mt-3" ref="graph-container">
-            <bar-graph
-              title="RSSI"
-              animDuration="1s"
-              :points="rssi"
-              :width="graphW"
-              :height="graphH"
-            />
-          </b-col>
-        </b-row>
-        <b-row class="text-center" align-v="center">
-          <b-col cols="1">
-            <div>TS</div>
-          </b-col>
-          <b-col class="mt-3">
-            <bar-graph title="TS" animDuration="1s" :points="ts" :width="graphW" :height="graphH" />
-          </b-col>
-        </b-row>
-      </b-container>
+      <apexchart type="line" height="350" :options="chartOptions" :series="series"></apexchart>
     </b-modal>
   </div>
 </template>
 
 <script>
 import axios from "axios";
-import BarGraph from "vue-svg-charts/src/components/bar";
+import VueApexCharts from "vue-apexcharts";
 
 const API_URL = "https://rssi.wmrk.tk/";
 
@@ -65,7 +42,7 @@ const WORK_API = `https://cors-anywhere.herokuapp.com/${API_URL}`;
 
 export default {
   name: "Table",
-  components: { BarGraph },
+  components: { apexchart: VueApexCharts },
   data: function() {
     return {
       fields: [
@@ -91,13 +68,48 @@ export default {
         }
       ],
 
-      // параметры таблицы
-      selectMode: "single",
+      // выделенная строка таблицы
       selected: [],
 
-      // данные характеристик связи пользователя
-      rssi: [],
-      ts: [],
+      // параметры графика вывода данных
+      series: [
+        {
+          name: "RSSI",
+          data: []
+        }
+      ],
+      chartOptions: {
+        chart: {
+          height: 350,
+          type: "line",
+          zoom: {
+            enabled: true
+          }
+        },
+        xaxis: {
+          type: "numeric",
+          labels: {
+            formatter: function(value) {
+              // переводим время в универсальное для подписи строки координат
+              const date = new Date(value);
+
+              const hours = date.getUTCHours();
+              const minutes = date.getUTCMinutes();
+              const seconds = date.getUTCSeconds();
+              const milliseconds = date.getUTCMilliseconds();
+
+              return `${hours}:${minutes}:${seconds}'${milliseconds}`; // The formatter function overrides format property
+            }
+          }
+        },
+        tooltip: {
+          x: {
+            formatter: function(val) {
+              return new Date(val);
+            }
+          }
+        }
+      },
 
       // общий массив данных пользователя
       userInfo: [],
@@ -115,34 +127,34 @@ export default {
     hideModal() {
       this.$refs["graph-modal"].hide();
     },
+    resetModal() {
+      this.$refs["data-table"].clearSelected();
+    },
     onRowSelected(items) {
-      this.rssi = [];
-      this.ts = [];
       this.selected = items;
 
       // получаем данные сигнала выбранного элемента
-      if (items[0].signals) {
+      if (items.length > 0 && items[0].signals) {
         const signals = items[0].signals;
-
-        // найдём минимальные значения уровней для нормализации графиков
-        const rssiBuffer = signals.map(signal => signal.rssi);
-        const tsBuffer = signals.map(signal => signal.ts);
-        // rssi имеет отрицательные значения
-        // нас интересует самое маленькой по абсолютному значению
-        // для отрицательных чисел это МАКСИМАЛЬНОЕ
-        const rssiMin = (Math.max.apply(null, rssiBuffer) * 0.9).toFixed(0); // считаем за минимум значние на 10% меньше минимального
-        const tsMin = (Math.min.apply(null, tsBuffer) * 0.999999).toFixed(0); // уменьшим минимальное на 0,001%, чтобы не допустить 0 значений в графике
+        this.series[0].data = [];
+        // отсортируем данные сигнала по временной шкале
+        signals.sort((a, b) => {
+          if (a.ts > b.ts) return 1;
+          if (a.ts == b.ts) return 0;
+          if (a.ts < b.ts) return -1;
+        });
         // создаём массивы данных сигнала для вывода в графике
         // одновременно производим нормализацию значений для лучшей визуализации на графиках
         signals.forEach(signal => {
-          this.rssi.push(Math.abs(signal.rssi - rssiMin));
-          this.ts.push(signal.ts - tsMin);
+          this.series[0].data.push([signal.ts, signal.rssi]);
+          //this.chartOptions.xaxis.categories.push(new Date(signal.ts));
         });
 
         this.showModal();
-      }
-      else {
-        console.log(`Parsing data ERROR: onRowSelected(item) => signals not find in item data`);
+      } else {
+        console.log(
+          `Parsing data ERROR: onRowSelected(item) => signals not find in item data`
+        );
       }
     }
   },
