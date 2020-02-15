@@ -1,5 +1,7 @@
 <template>
-    <apexchart type="line" height="350" :options="chartOptions" :series="series"></apexchart>
+    <div>
+        <apexchart type="line" height="350" :options="chartOptions" :series="series"></apexchart>
+    </div>
 </template>
 
 <script>
@@ -8,13 +10,16 @@ import VueApexCharts from "vue-apexcharts";
 export default {
     name: "Chart",
     components: { apexchart: VueApexCharts },
+    props: {
+        data: Array
+    },
     data: function() {
         return {
             // параметры графика вывода данных
             series: [
                 {
                     name: "RSSI",
-                    data: []
+                    data: this.data
                 }
             ],
             chartOptions: {
@@ -48,7 +53,8 @@ export default {
                         }
                     }
                 }
-            },
-        }},
+            }
+        };
+    }
 };
 </script>

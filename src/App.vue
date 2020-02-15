@@ -1,17 +1,17 @@
 <template>
   <div id="app">
     
-    <Table />
+    <UsersData />
   </div>
 </template>
 
 <script>
-import Table from './components/Table.vue';
+import UsersData from './components/UsersData.vue';
 
 export default {
   name: 'App',
   components: {
-    Table,
+    UsersData,
   }
 }
 </script>
