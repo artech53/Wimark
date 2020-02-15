@@ -1,7 +1,6 @@
 <template>
   <div class="table">
     <b-table
-      ref="selectableTable"
       selectable
       :select-mode="selectMode"
       :busy.sync="isBusy"
@@ -13,6 +12,8 @@
       <template v-slot:table-busy>
         <div class="text-center text-danger my-2">
           <b-spinner class="align-middle"></b-spinner>
+        </div>
+        <div class="text-center text-danger my-2">
           <strong>Загружаю данные...</strong>
         </div>
       </template>
@@ -23,12 +24,12 @@
         v-slot:modal-title
       >{{ selected && selected[0].first_name }} {{ selected && selected[0].last_name }} WiFi</template>
 
-      <b-container fluid >
+      <b-container fluid>
         <b-row class="text-center" align-v="center">
           <b-col cols="1">
             <div>RSSI</div>
           </b-col>
-          <b-col class="mt-3" ref="graph-container" >
+          <b-col class="mt-3" ref="graph-container">
             <bar-graph
               title="RSSI"
               animDuration="1s"
@@ -47,22 +48,20 @@
           </b-col>
         </b-row>
       </b-container>
-      <b-button class="mt-3" block @click="hideModal">Close Me</b-button>
     </b-modal>
-
-    <div class="api-info">{{ userInfo }}</div>
   </div>
 </template>
 
 <script>
 import axios from "axios";
 import BarGraph from "vue-svg-charts/src/components/bar";
-//import ky from "ky";
 
-//const API_TEST = 'https://api.coindesk.com/v1/bpi/currentprice.json';
-const API_TEST = "https://rssi.wmrk.tk/";
+const API_URL = "https://rssi.wmrk.tk/";
 
-const WORK_API = `https://cors-anywhere.herokuapp.com/${API_TEST}`;
+// используемый сервер API не поддеривает кросдоменные запросы
+// использование сторонних компонентов не принесло результата
+// потому используем прослойку в виде сервиса от хероку
+const WORK_API = `https://cors-anywhere.herokuapp.com/${API_URL}`;
 
 export default {
   name: "Table",
@@ -92,15 +91,19 @@ export default {
         }
       ],
 
+      // параметры таблицы
       selectMode: "single",
       selected: [],
 
+      // данные характеристик связи пользователя
       rssi: [],
       ts: [],
 
+      // общий массив данных пользователя
       userInfo: [],
       isBusy: false,
 
+      // параметры графиков вывода информации о связи
       graphW: 256,
       graphH: 128
     };
@@ -108,7 +111,6 @@ export default {
   methods: {
     showModal() {
       this.$refs["graph-modal"].show();
-      
     },
     hideModal() {
       this.$refs["graph-modal"].hide();
@@ -119,34 +121,42 @@ export default {
       this.selected = items;
 
       // получаем данные сигнала выбранного элемента
-      const signals = items[0].signals;
+      if (items[0].signals) {
+        const signals = items[0].signals;
 
-      // найдём минимальные значения уровней для нормализации графиков
-      const rssi = signals.map(signal => signal.rssi);
-      const ts = signals.map(signal => signal.ts);
-      // rssi имеет отрицательные значения
-      // нас интересует самое маленькой по абсолютному значению
-      // для отрицательных чисел это МАКСИМАЛЬНОЕ
-      const rssiMin = Math.max.apply(null, rssi) * 0.9; // считаем за минимум значние на 10% меньше минимального
-      const tsMin = Math.min.apply(null, ts);
-      console.log(`RSSI MIN = ${rssiMin}`);
-      console.log(`TS MIN = ${tsMin}`);
+        // найдём минимальные значения уровней для нормализации графиков
+        const rssiBuffer = signals.map(signal => signal.rssi);
+        const tsBuffer = signals.map(signal => signal.ts);
+        // rssi имеет отрицательные значения
+        // нас интересует самое маленькой по абсолютному значению
+        // для отрицательных чисел это МАКСИМАЛЬНОЕ
+        const rssiMin = (Math.max.apply(null, rssiBuffer) * 0.9).toFixed(0); // считаем за минимум значние на 10% меньше минимального
+        const tsMin = (Math.min.apply(null, tsBuffer) * 0.999999).toFixed(0); // уменьшим минимальное на 0,001%, чтобы не допустить 0 значений в графике
+        // создаём массивы данных сигнала для вывода в графике
+        // одновременно производим нормализацию значений для лучшей визуализации на графиках
+        signals.forEach(signal => {
+          this.rssi.push(Math.abs(signal.rssi - rssiMin));
+          this.ts.push(signal.ts - tsMin);
+        });
 
-      signals.forEach(signal => {
-        this.rssi.push(Math.abs(signal.rssi - rssiMin));
-        this.ts.push(signal.ts - tsMin);
-      });
-
-      this.showModal();
+        this.showModal();
+      }
+      else {
+        console.log(`Parsing data ERROR: onRowSelected(item) => signals not find in item data`);
+      }
     }
   },
 
-  mounted() {
+  async mounted() {
     this.isBusy = true;
-    axios.get(WORK_API).then(response => {
+
+    try {
+      const apiData = (await axios.get(WORK_API)).data;
       this.isBusy = false;
-      this.userInfo = Object.values(response.data);
-    });
+      this.userInfo = apiData && Object.values(apiData);
+    } catch (error) {
+      console.log(`mounted() => ${error}`);
+    }
   }
 };
 </script>
