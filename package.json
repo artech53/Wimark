@@ -13,7 +13,6 @@
     "bootstrap-vue": "^2.4.1",
     "core-js": "^3.6.4",
     "vue": "^2.6.11",
-    "vue-d3-charts": "^0.2.5",
     "vue-svg-charts": "0.0.6"
   },
   "devDependencies": {
